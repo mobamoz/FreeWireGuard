@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WireGuard Generator</title>
+    <style>
+        body {
+            background: linear-gradient(to right, #4a148c, #880e4f);
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding-bottom: 60px;
+        }
+        .container {
+            background-color: rgba(255, 255, 255, 0.15);
+            padding: 20px;
+            width: 80%;
+            margin: auto;
+            border-radius: 15px;
+            margin-top: 50px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            background-color: #222;
+            color: #ffcc00;
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ffcc00;
+        }
+        .btn {
+            padding: 12px 20px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+        .generate-btn { background-color: #ff4081; color: white; }
+        .copy-btn { background-color: #4caf50; color: white; }
+        .save-btn { background-color: #ffeb3b; color: black; }
+        .btn:hover { opacity: 0.85; }
+        .input-box {
+            margin: 10px;
+            padding: 10px;
+            font-size: 16px;
+            width: 60%;
+            text-align: center;
+            border-radius: 8px;
+            border: 1px solid #fff;
+            background-color: #333;
+            color: white;
+        }
+        .footer-btn {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .footer-btn button {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            background-color: #03a9f4;
+            color: white;
+        }
+        .install-note {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #ccc;
+        }
+        .download-btn {
+            background-color: #0288d1;
+            color: white;
+            border-radius: 8px;
+            padding: 10px 20px;
+            text-decoration: none;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .download-btn:hover {
+            background-color: #0277bd;
+        }
+        .help-text {
+            font-family: 'Tahoma', sans-serif;
+            font-size: 18px;
+            color: #f5f5f5;
+            margin-bottom: 15px;
+        }
+        .help-text strong {
+            color: #ffcc00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2> WireGuard config generator</h2>
+        <textarea id="configOutput"></textarea><br>
+        <input type="text" id="endpoint" class="input-box" placeholder="آدرس Endpoint خود را وارد کنید"><br>
+        <input type="text" id="dns" class="input-box" placeholder="DNS دلخواه خود را وارد کنید (اختیاری)"><br>
+        <button class="btn generate-btn" onclick="generateConfig()">ساخت کانفیگ</button>
+        <button class="btn copy-btn" onclick="copyToClipboard()">کپی</button>
+        <input type="text" id="fileName" class="input-box" placeholder="نام فایل (بدون پسوند)"><br>
+        <button class="btn save-btn" onclick="saveToFile()">ذخیره کانفیگ</button>
+
+        <!-- Note and Download Link -->
+        <div class="install-note">
+            <p class="help-text">برای استفاده از کانفیگ‌های فوق از نرم‌افزار <strong>WireGuard</strong> استفاده کنید که با کلیک کردن روی دکمه زیر می‌توانید آن را دانلود کنید:</p>
+            <a href="https://www.wireguard.com/install/" class="download-btn" target="_blank">دانلود WireGuard</a>
+        </div>
+    </div>
+
+    <div class="footer-btn">
+        <button onclick="window.open('https://t.me/MobAmoz_channel', '_blank')">کانال سازنده</button>
+    </div>
+
+    <script>
+        // لیست DNSهای تصادفی
+        const dnsList = [
+            "208.67.222.222, 208.67.220.220", // OpenDNS
+            "9.9.9.9, 149.112.112.112", // Quad9 DNS
+            "94.140.14.14, 94.140.15.15", // AdGuard DNS
+            "94.16.114.254, 94.247.43.254", // Yandex DNS
+            "8.26.56.26, 8.20.247.20", // Comodo DNS
+            "195.46.39.39, 195.46.39.40", // DNS.Watch
+            "77.88.8.8, 77.88.8.1" // Yandex DNS
+        ];
+
+        function getRandomIP() {
+            return Math.floor(Math.random() * 255) + "." +
+                   Math.floor(Math.random() * 255) + "." +
+                   Math.floor(Math.random() * 255) + "." +
+                   Math.floor(Math.random() * 255);
+        }
+        function getRandomPort() {
+            return Math.floor(Math.random() * (65535 - 1024) + 1024);
+        }
+        function getRandomKey() {
+            let array = new Uint8Array(32);
+            window.crypto.getRandomValues(array);
+            return btoa(String.fromCharCode.apply(null, array)).slice(0, 44);
+        }
+        function getRandomDNS() {
+            const randomIndex = Math.floor(Math.random() * dnsList.length);
+            return dnsList[randomIndex];
+        }
+
+        function generateConfig() {
+            let privateKey = getRandomKey();
+            let publicKey = getRandomKey();
+            let preSharedKey = getRandomKey();
+            let address = getRandomIP() + "/24";
+            let endpoint = document.getElementById("endpoint").value.trim() || getRandomIP() + ":" + getRandomPort();
+            let dns = document.getElementById("dns").value.trim() || getRandomDNS();  // اگر DNS وارد نشده باشد، DNS تصادفی استفاده می‌شود.
+            let config = `[Interface]
+PrivateKey = ${privateKey}
+Address = ${address}
+DNS = ${dns}
+MTU = 1480
+
+[Peer]
+PublicKey = ${publicKey}
+PresharedKey = ${preSharedKey}
+Endpoint = ${endpoint}
+PersistentKeepalive = 25`;
+            document.getElementById("configOutput").value = config;
+        }
+        function copyToClipboard() {
+            let textArea = document.getElementById("configOutput");
+            navigator.clipboard.writeText(textArea.value).then(() => {
+                alert("کانفیگ کپی شد!");
+            });
+        }
+        function saveToFile() {
+            let text = document.getElementById("configOutput").value;
+            let fileName = document.getElementById("fileName").value.trim() || "wireguard";
+            let blob = new Blob([text], { type: "text/plain" });
+            let a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName + ".conf";
+            a.click();
+        }
+    </script>
+</body>
+</html>
